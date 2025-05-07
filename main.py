@@ -202,4 +202,3 @@ def delete_record(table_name, id):
 
 if __name__ == '__main__':
     app.run(debug=True) 
-    print("coucou")
