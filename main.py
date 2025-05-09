@@ -212,6 +212,17 @@ def delete_record(table_name, id):
     
     return '', 204
 
+
+
+
+
+#======================================================================================================
+# ROUTES POUR LE LOGICIEL EMBARQUE
+#======================================================================================================
+
+
+
+#======================================================
 # Route spécifique pour l'ajout de profil basé sur un profil existant
 @app.route('/profil/duplicate', methods=['POST'])
 def duplicate_profil():
@@ -236,7 +247,7 @@ def duplicate_profil():
         # Création du nouveau profil avec le nouveau nom
         profil_dict = dict(original_profil)
         profil_dict['NomProfil'] = data['nom']
-        
+
         # Suppression de l'id pour la création du nouveau profil
         del profil_dict['IdProfil']
         del profil_dict['NomProfilDefaut']
@@ -371,6 +382,133 @@ def modifier_droits_profil():
     finally:
         if 'conn' in locals():
             conn.close()
+
+# Route spécifique pour l'ajout d'un utilisateur
+@app.route('/utilisateur/ajout', methods=['POST'])
+def ajouter_utilisateur():
+    data = request.get_json()
+    
+    # Vérification des données requises
+    if not data or 'nom' not in data or 'motDePasse' not in data or 'idProfil' not in data:
+        return jsonify({'error': 'Les champs nom, motDePasse et idProfil sont requis'}), 400
+    
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Vérification que le profil existe
+        cursor.execute("SELECT idProfil FROM TableProfils WHERE idProfil = ?", (data['idProfil'],))
+        if cursor.fetchone() is None:
+            conn.close()
+            return jsonify({'error': 'Profil non trouvé'}), 404
+        
+        # Création du dictionnaire pour l'insertion
+        utilisateur_dict = {
+            'Nom': data['nom'],
+            'MDP': data['motDePasse'],
+            'IdProfil': data['idProfil'],
+            'EstParDefautPourProfil': 0,
+            'NomDefaut': '',
+            'MDPRecuperation': '',
+            'EstModifiable': 1,
+            'EstAffichable': 1,
+            'EstCloture': 0
+        }
+        
+        # Construction de la requête SQL
+        columns = ', '.join(utilisateur_dict.keys())
+        placeholders = ', '.join(['?' for _ in utilisateur_dict])
+        values = tuple(utilisateur_dict.values())
+        
+        cursor.execute(f"INSERT INTO TableUtilisateurs ({columns}) VALUES ({placeholders})", values)
+        new_id = cursor.lastrowid
+        
+        conn.commit()
+        
+        return jsonify({
+            'message': 'Utilisateur créé avec succès',
+            'idUtilisateur': new_id,
+            **utilisateur_dict
+        }), 201
+        
+    except Exception as e:
+        if 'conn' in locals():
+            conn.rollback()
+        return jsonify({'error': f'Erreur lors de la création de l\'utilisateur: {str(e)}'}), 500
+        
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+# Route spécifique pour la modification d'un utilisateur
+@app.route('/utilisateur/modification', methods=['PUT'])
+def modifier_utilisateur():
+    data = request.get_json()
+    
+    # Vérification des données requises
+    if not data or 'idUtilisateur' not in data or 'nom' not in data or 'motDePasse' not in data or 'idProfil' not in data or 'Cloture' not in data:
+        return jsonify({'error': 'Les champs idUtilisateur, nom, motDePasse, idProfil et Cloture sont requis'}), 400
+    
+    # Vérification que Cloture est 0 ou 1
+    if data['Cloture'] not in [0, 1]:
+        return jsonify({'error': 'Le champ Cloture doit être 0 ou 1'}), 400
+    
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Vérification que l'utilisateur existe
+        cursor.execute("SELECT * FROM TableUtilisateurs WHERE IdUtilisateur = ?", (data['idUtilisateur'],))
+        utilisateur = cursor.fetchone()
+        if utilisateur is None:
+            conn.close()
+            return jsonify({'error': 'Utilisateur non trouvé'}), 404
+        
+        # Vérification que le profil existe
+        cursor.execute("SELECT idProfil FROM TableProfils WHERE idProfil = ?", (data['idProfil'],))
+        if cursor.fetchone() is None:
+            conn.close()
+            return jsonify({'error': 'Profil non trouvé'}), 404
+        
+        # Mise à jour des informations de l'utilisateur
+        cursor.execute("""
+            UPDATE TableUtilisateurs 
+            SET Nom = ?,
+                MDP = ?,
+                IdProfil = ?,
+                EstCloture = ?
+            WHERE IdUtilisateur = ?
+        """, (data['nom'], data['motDePasse'], data['idProfil'], data['Cloture'], data['idUtilisateur']))
+        
+        conn.commit()
+        
+        # Récupération des informations mises à jour
+        cursor.execute("""
+            SELECT u.*, p.NomProfil
+            FROM TableUtilisateurs u
+            LEFT JOIN TableProfils p ON u.IdProfil = p.IdProfil
+            WHERE u.IdUtilisateur = ?
+        """, (data['idUtilisateur'],))
+        
+        utilisateur_mis_a_jour = dict(cursor.fetchone())
+        
+        return jsonify({
+            'message': 'Utilisateur modifié avec succès',
+            'utilisateur': utilisateur_mis_a_jour
+        }), 200
+        
+    except Exception as e:
+        if 'conn' in locals():
+            conn.rollback()
+        return jsonify({'error': f'Erreur lors de la modification de l\'utilisateur: {str(e)}'}), 500
+        
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+
+
+
 
 if __name__ == '__main__':
     app.run(debug=True) 
