@@ -17,7 +17,8 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
-DATABASE = os.getenv('DATABASE_URL', './Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
+#DATABASE = os.getenv('DATABASE_URL', './Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
+DATABASE = os.getenv('DATABASE_URL', 'ACRN_API_REST_EMBARQ/Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
 DictDesriptionTable = {}  
 
 def get_db():
@@ -366,7 +367,31 @@ def ConvertiRequeteEnJSON(query, params=None):
         if 'conn' in locals():
             conn.close()
 
+def GenereSQLPourSelectEtoile(NomTable):
+     # Connexion à la base de données
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Récupération de la structure de la table
+        cursor.execute(f'PRAGMA table_info({NomTable})')
+        columns = cursor.fetchall()
+        
+        # Construction de la requête SQL avec tous les champs
+        select_parts = []
+        for col in columns:
+            column_name = col[1]  # Le nom de la colonne est dans la deuxième position
+            select_parts.append(f'{NomTable}.{column_name} as "{NomTable}..{column_name}.."')
+        
+        query = f"""
+        SELECT 
+            {',\n            '.join(select_parts)}
+        FROM {NomTable}
+        """
+
+        return(query)
 #======================================================================================================
+
+
 
 
 
@@ -631,38 +656,81 @@ def lire_tableau_utilisateurs():
 
 
 
-#======================================================================================================
-# CAPTEUR
 
-# Route spécifique pour la suppression d'un profil
+#======================================================================================================
+# Overloads
+
+# Route spécifique pour la lecture du tableau de capteurs
+@app.route('/Capteur/TableauOverloads', methods=['GET'])
+def lire_tableau_overloads():
+    try:
+        conn = get_db()
+        query=GenereSQLPourSelectEtoile('TableOverloads')
+        print(query)
+        return ConvertiRequeteEnJSON(query)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+#======================================================================================================
+
+
+
+#======================================================================================================
+# Droits
+
+# Route spécifique pour la lecture du tableau de capteurs
+@app.route('/Capteur/TableauDroits', methods=['GET'])
+def lire_tableau_Droits():
+    try:
+        conn = get_db()
+        query="""
+            SELECT
+            TableDroits.IdDroit as 'TableDroits..IdDroit..',
+            TableDroits.Nom as 'TableDroits..Nom..',
+            TableDroits2.nom as 'TableDroits..IdDroitPrerequis..',
+            TableDroits.EstModifiable as 'TableDroits..EstModifiable..',
+            TableDroits.EstAffichable as 'TableDroits..EstAffichable..',
+            TableDroits.ReferenceTraduction as 'TableDroits..ReferenceTraduction..'
+            FROM TableDroits left join TableDroits TableDroits2 on TableDroits.IdDroitPrerequis=TableDroits2.IdDroit
+            """
+        print(query)
+        return ConvertiRequeteEnJSON(query)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+#======================================================================================================
+
+
+
+
+
+#======================================================================================================
+# CAPTEURS
+
+# Route spécifique pour la lecture du tableau de capteurs
 @app.route('/Capteur/TableauCapteurs', methods=['GET'])
 def lire_tableau_capteurs():
-    
-    query = """
-    SELECT 
+    try:
+        conn = get_db()
+        query=GenereSQLPourSelectEtoile('TableCapteur')
+        return ConvertiRequeteEnJSON(query)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
-    TableCapteur.IdCapteur as "TableCapteur..IdCapteur..", 
-    TableCapteur.TypeMesure as "TableCapteur..TypeMesure..", 
-    TableCapteur.BoolConnecte as "TableCapteur..BoolConnecte..", 
-    TableCapteur.BoolConnecte as "TableCapteur..BoolConnecte..", 
-    TableCapteur.ClasseInstanciation as "TableCapteur..ClasseInstanciation..", 
-    TableCapteur.GainPositif as "TableCapteur..GainPositif..", 
-    TableCapteur.GainNegatif as "TableCapteur..GainNegatif..", 
-    TableCapteur.Moyenne as "TableCapteur..Moyenne.."
-
-    FROM TableCapteur;
-    """
-    
-    result = ConvertiRequeteEnJSON(query)
-    return result
 
 #======================================================================================================
-
-
-
-
-
-
 
 
 
