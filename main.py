@@ -279,12 +279,86 @@ def duplicate_profil():
         if 'conn' in locals():
             conn.close()
 
-
-   
-
+# Route pour ajouter ou supprimer des droits d'un profil
+@app.route('/profil/droits', methods=['PUT'])
+def modifier_droits_profil():
+    data = request.get_json()
     
-
-
+    # Vérification des données requises
+    if not data or 'idProfil' not in data or 'idDroit' not in data or 'typeAction' not in data:
+        return jsonify({'error': 'Les champs idProfil, idDroit et typeAction sont requis'}), 400
+    
+    # Vérification du type d'action
+    if data['typeAction'] not in ['Ajouter', 'Supprimer']:
+        return jsonify({'error': 'Le typeAction doit être "Ajouter" ou "Supprimer"'}), 400
+    
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Vérification que le profil existe
+        cursor.execute("SELECT idProfil FROM TableProfils WHERE idProfil = ?", (data['idProfil'],))
+        if cursor.fetchone() is None:
+            conn.close()
+            return jsonify({'error': 'Profil non trouvé'}), 404
+        
+        # Vérification que le droit existe
+        cursor.execute("SELECT idDroit FROM TableDroits WHERE idDroit = ?", (data['idDroit'],))
+        if cursor.fetchone() is None:
+            conn.close()
+            return jsonify({'error': 'Droit non trouvé'}), 404
+        
+        if data['typeAction'] == 'Ajouter':
+            # Vérification si le droit existe déjà pour ce profil
+            cursor.execute("""
+                SELECT IdProfilDroit 
+                FROM TableProfilsDroits 
+                WHERE IdProfil = ? AND IdDroit = ?
+            """, (data['idProfil'], data['idDroit']))
+            
+            if cursor.fetchone() is not None:
+                conn.close()
+                return jsonify({'error': 'Ce droit est déjà associé au profil'}), 400
+            
+            # Ajout du droit
+            cursor.execute("""
+                INSERT INTO TableProfilsDroits (IdProfil, IdDroit)
+                VALUES (?, ?)
+            """, (data['idProfil'], data['idDroit']))
+            
+        else:  # Supprimer
+            # Suppression du droit
+            cursor.execute("""
+                DELETE FROM TableProfilsDroits 
+                WHERE IdProfil = ? AND IdDroit = ?
+            """, (data['idProfil'], data['idDroit']))
+        
+        conn.commit()
+        
+        # Récupération des droits actuels du profil pour la réponse
+        cursor.execute("""
+            SELECT d.* 
+            FROM TableDroits d
+            INNER JOIN TableProfilsDroits pd ON d.IdDroit = pd.IdDroit
+            WHERE pd.IdProfil = ?
+        """, (data['idProfil'],))
+        
+        droits = [dict(row) for row in cursor.fetchall()]
+        
+        return jsonify({
+            'message': f'Droit {"ajouté" if data["typeAction"] == "Ajouter" else "supprimé"} avec succès',
+            'idProfil': data['idProfil'],
+            'droits': droits
+        }), 200
+        
+    except Exception as e:
+        if 'conn' in locals():
+            conn.rollback()
+        return jsonify({'error': f'Erreur lors de la modification des droits: {str(e)}'}), 500
+        
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 if __name__ == '__main__':
     app.run(debug=True) 
