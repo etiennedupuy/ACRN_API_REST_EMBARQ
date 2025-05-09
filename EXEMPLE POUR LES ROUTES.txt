@@ -2,27 +2,13 @@ Détail pour les routes
 
 
 
-ROUTE : /utilisateur/ajout - POST
+
+
+ROUTE : /profil/suppression - PUT
 	Exemple de JSON a evoyer
 	{
-		"nom": "Nom de l'utilisateur",
-		"motDePasse": "Mot de passe",
 		"idProfil": 1
 	}
-
-
-
-ROUTE : /utilisateur/modification - PUT
-	Exemple de JSON a evoyer
-	{
-		"idUtilisateur": 1,
-		"nom": "Nouveau nom",
-		"motDePasse": "Nouveau mot de passe",
-		"idProfil": 2,
-		"Cloture": 1
-	}
-Remarque : cette route sert aussi à la "SUPRESSION", en utilisant le flag "Cloture"
-
 
 ROUTE : /profil/duplicate - POST
 	Exemple de JSON a evoyer
