@@ -1,8 +1,9 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
+from dotenv import load_dotenv
 import sqlite3
 import logging
 import os
-from dotenv import load_dotenv
 
 # Configuration du logging
 logging.basicConfig(
@@ -15,7 +16,8 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 app = Flask(__name__)
-DATABASE = os.getenv('DATABASE_URL', 'ACRN_API_REST_EMBARQ/Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
+CORS(app)
+DATABASE = os.getenv('DATABASE_URL', './Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
 
 def get_db():
     conn = sqlite3.connect(DATABASE)
@@ -34,9 +36,19 @@ def get_table_columns(table_name):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(f"PRAGMA table_info({table_name})")
-    columns = [row[1] for row in cursor.fetchall()]
+    columns_info = []
+    for row in cursor.fetchall():
+        technical_name = row[1]
+        columns_info.append({
+            'name': technical_name,
+            'type': row[2],
+            'not_null': bool(row[3]),
+            'default_value': row[4],
+            'primary_key': bool(row[5])
+        })
     conn.close()
-    return columns
+    return columns_info
+
 
 def get_primary_key(table_name):
     conn = get_db()
@@ -72,9 +84,9 @@ def list_tables():
 def get_table_structure(table_name):
     if table_name not in get_tables():
         return jsonify({'error': 'Table non trouvée'}), 404
+    columns = get_table_columns(table_name)
     return jsonify({
-        'columns': get_table_columns(table_name),
-        'primary_key': get_primary_key(table_name)
+        'columns': columns
     })
 
 # Route GET pour tous les enregistrements d'une table
