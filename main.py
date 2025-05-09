@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 from dotenv import load_dotenv
 import sqlite3
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
 DATABASE = os.getenv('DATABASE_URL', './Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
 DictDesriptionTable = {}  
 
@@ -374,8 +374,15 @@ def ConvertiRequeteEnJSON(query, params=None):
 # PROFILS
 
 # Route spécifique pour l'ajout de profil basé sur un profil existant
-@app.route('/profil/duplicate', methods=['POST'])
+@app.route("/profil/duplicate", methods=["POST", "OPTIONS"])
 def duplicate_profil():
+    if request.method == "OPTIONS":
+        response = make_response()
+        response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        return response, 204
+
     data = request.get_json()
     
     # Vérification des données requises
@@ -609,7 +616,7 @@ def lire_tableau_utilisateurs():
         u.Nom as "TableUtilisateurs..Nom..",
         u.MDP as "TableUtilisateurs..MDP..",
         p.NomProfil as "TableProfils..NomProfil..",
-        u.IdProfil as "TableUtilisateurs..IdProfil..",
+        u.IdProfil as "TableUtilisateurs..IdProfil.."
     FROM TableUtilisateurs u
     INNER JOIN TableProfils p ON u.IdProfil = p.IdProfil
     """
