@@ -610,7 +610,6 @@ def lire_tableau_utilisateurs():
         u.MDP as "TableUtilisateurs..MDP..",
         p.NomProfil as "TableProfils..NomProfil..",
         u.IdProfil as "TableUtilisateurs..IdProfil..",
-        p.IdProfilOrigineCopie as "TableProfils..IdProfilOrigineCopie.."
     FROM TableUtilisateurs u
     INNER JOIN TableProfils p ON u.IdProfil = p.IdProfil
     """
