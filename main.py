@@ -17,7 +17,7 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
-DATABASE = os.getenv('DATABASE_URL', 'ACRN_API_REST_EMBARQ/Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
+DATABASE = os.getenv('DATABASE_URL', './Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
 DictDesriptionTable = {}  
 
 def get_db():
@@ -608,9 +608,11 @@ def lire_tableau_utilisateurs():
     SELECT 
         u.Nom as "TableUtilisateurs..Nom..",
         u.MDP as "TableUtilisateurs..MDP..",
-        p.NomProfil as "TableProfils..NomProfil.."
-
-    from TableUtilisateurs u  inner join TableProfils p on u.IdProfil = p.IdProfil
+        p.NomProfil as "TableProfils..NomProfil..",
+        u.IdProfil as "TableUtilisateurs..IdProfil..",
+        p.IdProfilOrigineCopie as "TableProfils..IdProfilOrigineCopie.."
+    FROM TableUtilisateurs u
+    INNER JOIN TableProfils p ON u.IdProfil = p.IdProfil
     """
     
     result = ConvertiRequeteEnJSON(query)
