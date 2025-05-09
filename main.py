@@ -107,21 +107,33 @@ def get_all_records(table_name):
 def get_record(table_name, id):
     if table_name not in get_tables():
         return jsonify({'error': 'Table non trouvée'}), 404
-    
+
     primary_key = get_primary_key(table_name)
     if not primary_key:
         return jsonify({'error': 'Clé primaire non trouvée'}), 400
-    
+
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute(f"SELECT * FROM {table_name} WHERE {primary_key} = ?", (id,))
+
+    # Si la table est TableProfils, on joint avec le profil d'origine
+    if table_name == "TableProfils":
+        cursor.execute("""
+            SELECT p.*, po.NomProfil AS NomProfilOrigine
+            FROM TableProfils p
+            LEFT JOIN TableProfils po ON p.IdProfilOrigineCopie = po.IdProfil
+            WHERE p.IdProfil = ?
+        """, (id,))
+    else:
+        cursor.execute(f"SELECT * FROM {table_name} WHERE {primary_key} = ?", (id,))
+
     record = cursor.fetchone()
     conn.close()
-    
+
     if record is None:
         return jsonify({'error': 'Enregistrement non trouvé'}), 404
-    
+
     return jsonify(dict(record))
+
 
 # Route POST pour créer un enregistrement
 @app.route('/<table_name>', methods=['POST'])
@@ -250,6 +262,7 @@ def duplicate_profil():
 
         # Suppression de l'id pour la création du nouveau profil
         del profil_dict['IdProfil']
+        profil_dict['IdProfilOrigineCopie'] = data['idProfilOrigineCopie']
         del profil_dict['NomProfilDefaut']
         
         # Construction de la requête SQL
