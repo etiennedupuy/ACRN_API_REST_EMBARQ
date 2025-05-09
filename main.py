@@ -200,5 +200,91 @@ def delete_record(table_name, id):
     
     return '', 204
 
+# Route spécifique pour l'ajout de profil basé sur un profil existant
+@app.route('/profil/duplicate', methods=['POST'])
+def duplicate_profil():
+    data = request.get_json()
+    
+    # Vérification des données requises
+    if not data or 'idProfilOrigineCopie' not in data or 'nom' not in data:
+        return jsonify({'error': 'Les champs id et nom sont requis'}), 400
+    
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Récupération du profil d'origine
+        cursor.execute("SELECT * FROM TableProfils WHERE idProfil = ?", (data['idProfilOrigineCopie'],))
+        original_profil = cursor.fetchone()
+        
+        if original_profil is None:
+            conn.close()
+            return jsonify({'error': 'Profil d\'origine non trouvé'}), 404
+        
+        # Création du nouveau profil avec le nouveau nom
+        profil_dict = dict(original_profil)
+        profil_dict['NomProfil'] = data['nom']
+        
+        # Suppression de l'id pour la création du nouveau profil
+        del profil_dict['IdProfil']
+        del profil_dict['NomProfilDefaut']
+        
+        # Construction de la requête SQL
+        columns = ', '.join(profil_dict.keys())
+        placeholders = ', '.join(['?' for _ in profil_dict])
+        values = tuple(profil_dict.values())
+        
+        cursor.execute(f"INSERT INTO TableProfils ({columns}) VALUES ({placeholders})", values)
+
+
+
+        #==============================================
+        # Copie des droits
+        #==============================================     
+
+        new_id = cursor.lastrowid
+        
+        # Récupération des droits du profil d'origine
+        cursor.execute("SELECT * FROM TableProfilsDroits WHERE IdProfil = ?", (data['idProfilOrigineCopie'],))
+        droits_origine = cursor.fetchall()
+        
+        # Pour chaque droit, création d'un nouvel enregistrement avec le nouvel IdProfil
+        for droit in droits_origine:
+            droit_dict = dict(droit)
+            # Suppression de l'id pour la création du nouveau droit
+            del droit_dict['IdProfilDroit']
+            # Mise à jour de l'IdProfil avec le nouvel ID
+            droit_dict['IdProfil'] = new_id
+            
+            # Construction de la requête SQL pour l'insertion du droit
+            columns = ', '.join(droit_dict.keys())
+            placeholders = ', '.join(['?' for _ in droit_dict])
+            values = tuple(droit_dict.values())
+            
+            cursor.execute(f"INSERT INTO TableProfilsDroits ({columns}) VALUES ({placeholders})", values)
+        
+        # Commit de toutes les modifications
+        conn.commit()
+        
+        return jsonify({'idProfil': new_id, **profil_dict}), 201
+        
+    except Exception as e:
+        # En cas d'erreur, on fait un rollback
+        if 'conn' in locals():
+            conn.rollback()
+        return jsonify({'error': f'Erreur lors de la duplication du profil: {str(e)}'}), 500
+        
+    finally:
+        # On s'assure que la connexion est toujours fermée
+        if 'conn' in locals():
+            conn.close()
+
+
+   
+
+    
+
+
+
 if __name__ == '__main__':
     app.run(debug=True) 
