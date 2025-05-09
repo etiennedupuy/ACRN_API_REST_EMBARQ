@@ -17,12 +17,20 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
-DATABASE = os.getenv('DATABASE_URL', './Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
+DATABASE = os.getenv('DATABASE_URL', 'ACRN_API_REST_EMBARQ/Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
+DictDesriptionTable = {}  
 
 def get_db():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+
+#======================================================================================================
+# ROUTES STANDARDS POUR LE LOGICIEL EMBARQUE
+#======================================================================================================
+
 
 def get_tables():
     conn = get_db()
@@ -229,12 +237,142 @@ def delete_record(table_name, id):
 
 
 #======================================================================================================
-# ROUTES POUR LE LOGICIEL EMBARQUE
+# ROUTES SPECIFIQUES POUR LE LOGICIEL EMBARQUE
+#======================================================================================================
+
+#======================================================================================================
+# FONCTION GENERALES
+
+def get_table_description_dict():
+    """
+    Crée un dictionnaire à partir de la table TableDescriptionTable
+    avec le champ NomComplet comme clé.
+    
+    Returns:
+        dict: Dictionnaire avec NomComplet comme clé et les autres champs comme valeurs
+    """
+    try:
+
+        
+        # Connexion à la base de données
+        conn = sqlite3.connect(DATABASE)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Récupération des données
+        cursor.execute("SELECT * FROM TableDescriptionTable")
+        rows = cursor.fetchall()
+        
+        # Création du dictionnaire
+        description_dict = {}
+        for row in rows:
+            row_dict = dict(row)
+            nom_complet = row_dict.get('NomComplet')
+            if nom_complet:
+                description_dict[nom_complet] = row_dict
+        
+        return description_dict
+        
+    except Exception as e:
+        print(f"Erreur lors de la création du dictionnaire : {str(e)}")
+        return {}
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+def ConvertiRequeteEnJSON(query, params=None):
+    """
+    Analyse une requête SQL et retourne les métadonnées et les données.
+    
+    Args:
+        query (str): La requête SQL à analyser
+        params (tuple, optional): Les paramètres de la requête
+        
+    Returns:
+        dict: Un dictionnaire contenant :
+            - metadata: Liste des champs avec leurs descriptions
+            - data: Les données de la requête
+    """
+    try:
+        # Connexion à la base de données
+        conn = sqlite3.connect(DATABASE)
+        conn.row_factory = sqlite3.Row  # Pour avoir accès aux colonnes par nom
+        cursor = conn.cursor()
+        
+        # Exécution de la requête
+        if params:
+            cursor.execute(query, params)
+        else:
+            cursor.execute(query)
+            
+        # Récupération des données
+        data = cursor.fetchall()
+        
+        # Récupération des métadonnées des colonnes
+        columns = cursor.description
+        
+        # Construction du résultat
+        result = {
+            "metadata": [],
+            "data": []
+        }
+        
+        # Extraction des noms de tables de la requête
+        tables = []
+        if "FROM" in query:
+            from_part = query.split("FROM")[1].split("WHERE")[0].strip()
+            tables = [t.strip() for t in from_part.split("JOIN")[0].split(",")]
+            if "JOIN" in from_part:
+                join_tables = from_part.split("JOIN")[1:]
+                for join in join_tables:
+                    tables.append(join.split("ON")[0].strip())
+        
+        # Traitement des métadonnées
+        for col in columns:
+            # Détermination de la table d'origine
+            table_name = "N/A"
+            for table in tables:
+                if col[0].startswith(table + "."):
+                    table_name = table
+                    break
+            
+            # Construction du NomComplet pour la recherche dans le dictionnaire
+            nom_complet = col[0]  # Le nom complet est déjà dans le format attendu grâce à l'alias dans la requête
+            
+            # Récupération des informations du dictionnaire
+            dict_info = DictDesriptionTable.get(nom_complet, {})
+            
+            field_info = {
+                "NomComplet": nom_complet,
+                "libelle": dict_info.get('LibelleChamp', "Libelle Introuvable"),
+                "EstScrutable": dict_info.get('EstScrutable', False),  # Par défaut True si non spécifié
+                "EstFiltrable": dict_info.get('EstFiltrable', True),  # Par défaut True si non spécifié
+                "EstModifiable": dict_info.get('EstModifiable', True),  # Par défaut True si non spécifié
+                "TypeChamp": dict_info.get('TypeChamp', False),  # Par défaut True si non spécifié
+                "ValeurParDefaut": dict_info.get('ValeurParDefaut', True),  # Par défaut True si non spécifié
+            }   
+            result["metadata"].append(field_info)
+        
+        # Traitement des données
+        for row in data:
+            row_dict = dict(row)  # Conversion de sqlite3.Row en dict
+            result["data"].append(row_dict)
+            
+        return result
+        
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
 #======================================================================================================
 
 
 
-#======================================================
+#======================================================================================================
+# PROFILS
+
 # Route spécifique pour l'ajout de profil basé sur un profil existant
 @app.route('/profil/duplicate', methods=['POST'])
 def duplicate_profil():
@@ -452,5 +590,82 @@ def supprimer_profil():
         if 'conn' in locals():
             conn.close()
 
+#======================================================================================================
+
+
+
+
+
+
+#======================================================================================================
+# UTILISATEURS
+
+# Route spécifique pour la suppression d'un profil
+@app.route('/Capteur/TableauUtilisateurs', methods=['GET'])
+def lire_tableau_utilisateurs():
+    
+    query = """
+    SELECT 
+        u.Nom as "TableUtilisateurs..Nom..",
+        u.MDP as "TableUtilisateurs..MDP..",
+        p.NomProfil as "TableProfils..NomProfil.."
+
+    from TableUtilisateurs u  inner join TableProfils p on u.IdProfil = p.IdProfil
+    """
+    
+    result = ConvertiRequeteEnJSON(query)
+    return result
+#======================================================================================================
+
+
+
+
+
+
+
+#======================================================================================================
+# CAPTEUR
+
+# Route spécifique pour la suppression d'un profil
+@app.route('/Capteur/TableauCapteurs', methods=['GET'])
+def lire_tableau_capteurs():
+    
+    query = """
+    SELECT 
+
+    TableCapteur.IdCapteur as "TableCapteur..IdCapteur..", 
+    TableCapteur.TypeMesure as "TableCapteur..TypeMesure..", 
+    TableCapteur.BoolConnecte as "TableCapteur..BoolConnecte..", 
+    TableCapteur.BoolConnecte as "TableCapteur..BoolConnecte..", 
+    TableCapteur.ClasseInstanciation as "TableCapteur..ClasseInstanciation..", 
+    TableCapteur.GainPositif as "TableCapteur..GainPositif..", 
+    TableCapteur.GainNegatif as "TableCapteur..GainNegatif..", 
+    TableCapteur.Moyenne as "TableCapteur..Moyenne.."
+
+    FROM TableCapteur;
+    """
+    
+    result = ConvertiRequeteEnJSON(query)
+    return result
+
+#======================================================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 if __name__ == '__main__':
+    DictDesriptionTable = get_table_description_dict()
+
     app.run(debug=True) 
+
+    
