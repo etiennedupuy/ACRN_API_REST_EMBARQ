@@ -655,8 +655,6 @@ def lire_tableau_utilisateurs():
 
 
 
-
-
 #======================================================================================================
 # Overloads
 
@@ -729,12 +727,134 @@ def lire_tableau_capteurs():
         if 'conn' in locals():
             conn.close()
 
-
 #======================================================================================================
 
 
 
+#======================================================================================================
+# COURBES
+@app.route('/Courbe/CsvVersJson', methods=['GET'])
+def lire_csv_courbes():
+    try:
+        # Récupération du nom du fichier depuis les paramètres de requête
+        nom_fichier = request.args.get('nom_fichier')
+        if not nom_fichier:
+            return jsonify({'error': 'Le paramètre nom_fichier est requis'}), 400
 
+        # Construction du chemin complet du fichier
+        chemin_fichier = os.path.join('ACRN_API_REST_EMBARQ', nom_fichier)
+        print(f"Tentative de lecture du fichier : {chemin_fichier}")
+        
+        if not os.path.exists(chemin_fichier):
+            return jsonify({'error': f'Le fichier {nom_fichier} n\'existe pas'}), 404
+
+        # Lecture du fichier CSV
+        import csv
+        import json
+        from datetime import datetime
+
+        result = {
+            "metadata": [],
+            "data": []
+        }
+
+        with open(chemin_fichier, 'r', encoding='utf-8') as file:
+            # Lecture de la première ligne pour les types de données
+            types_line = next(csv.reader(file,delimiter=';'))
+            file.seek(0)  # Retour au début du fichier
+            
+            # Lecture des en-têtes
+            csv_reader = csv.reader(file,delimiter=';')
+            headers = next(csv_reader)
+            print(headers)
+
+            # Lecture des données
+            for row in csv_reader:
+                if len(row) != len(headers):
+                    print(f"Attention: ligne ignorée car nombre de colonnes incorrect: {row}")
+                    continue
+                    
+                row_dict = {}
+                for i, value in enumerate(row):
+                    if not value.strip():  # Si la valeur est vide
+                        row_dict[f"CSV..{headers[i]}.."] = None
+                        continue
+                        
+                    try:
+                        # Conversion selon le type spécifié
+                        type_champ = types_line[i] if i < len(types_line) else "string"
+                        if type_champ == "number":
+                            if '.' in value:
+                                row_dict[f"CSV..{headers[i]}.."] = float(value)
+                            else:
+                                row_dict[f"CSV..{headers[i]}.."] = int(value)
+                        elif type_champ == "date":
+                            row_dict[f"CSV..{headers[i]}.."] = datetime.strptime(value, '%Y-%m-%d %H:%M:%S').isoformat()
+                        else:
+                            row_dict[f"CSV..{headers[i]}.."] = value
+                    except Exception as e:
+                        print(f"Erreur de conversion pour la valeur '{value}' dans la colonne {headers[i]}: {str(e)}")
+                        row_dict[f"CSV..{headers[i]}.."] = value
+
+                result["data"].append(row_dict)
+
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"Erreur lors de la lecture du CSV: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+
+
+@app.route('/Courbe/TelechargerCSV', methods=['GET'])
+def telecharger_csv():
+    try:
+        # Récupération du nom du fichier depuis les paramètres de requête
+        nom_fichier = request.args.get('nom_fichier')
+        if not nom_fichier:
+            return jsonify({'error': 'Le paramètre nom_fichier est requis'}), 400
+
+        # Construction du chemin complet du fichier
+        chemin_fichier = os.path.join('ACRN_API_REST_EMBARQ\CSVCourbes', nom_fichier)
+        print(chemin_fichier)
+        
+        if not os.path.exists(chemin_fichier):
+            return jsonify({'error': f'Le fichier {nom_fichier} n\'existe pas'}), 404
+
+        # Création de la réponse avec le fichier CSV
+        response = make_response(open(chemin_fichier, 'rb').read())
+        response.headers['Content-Type'] = 'text/csv'
+        response.headers['Content-Disposition'] = f'attachment; filename={nom_fichier}'
+        
+        return response
+
+    except Exception as e:
+        print(f"Erreur lors du téléchargement du CSV: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/Courbe/ListeFichiersCSV', methods=['GET'])
+def liste_fichiers_csv():
+    try:
+        # Chemin du dossier contenant les fichiers CSV
+        dossier = 'ACRN_API_REST_EMBARQ\CSVCourbes'
+        
+        # Liste tous les fichiers du dossier
+        fichiers = os.listdir(dossier)
+        
+        # Filtre pour ne garder que les fichiers CSV
+        fichiers_csv = [f for f in fichiers if f.lower().endswith('.csv')]
+        
+        # Création de la réponse JSON
+        result = {
+            "data": [{"NomFichierCSV": fichier} for fichier in fichiers_csv]
+        }
+        
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"Erreur lors de la lecture des fichiers CSV: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 
 
