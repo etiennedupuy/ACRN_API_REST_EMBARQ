@@ -632,10 +632,52 @@ def supprimer_profil():
 #======================================================================================================
 # UTILISATEURS
 
-# Route spécifique pour la suppression d'un profil
+# Route spécifique pour la suppression logique d'un utilisateur
+@app.route('/Utilisateur/Cloture', methods=['PUT'])
+def Cloturer_utilisateur():
+    data = request.get_json()
+    
+    # Vérification des données requises
+    if not data or 'idUtilisateur' not in data:
+        return jsonify({'error': 'Le champ idUtilisateur est requis'}), 400
+    
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Vérification que l'utilisateur existe
+        cursor.execute("SELECT * FROM TableUtilisateurs WHERE IdUtilisateur = ?", (data['idUtilisateur'],))
+        utilisateur = cursor.fetchone()
+        if utilisateur is None:
+            conn.close()
+            return jsonify({'error': 'Utilisateur non trouvé'}), 404
+        
+        # Mise à jour du flag EstCloture
+        cursor.execute("""
+            UPDATE TableUtilisateurs 
+            SET EstCloture = 1
+            WHERE IdUtilisateur = ?
+        """, (data['idUtilisateur'],))
+        
+        conn.commit()
+        
+        return jsonify({
+            'message': 'Utilisateur supprimé avec succès',
+            'idUtilisateur': data['idUtilisateur']
+        }), 200
+        
+    except Exception as e:
+        if 'conn' in locals():
+            conn.rollback()
+        return jsonify({'error': f'Erreur lors de la suppression de l\'utilisateur: {str(e)}'}), 500
+        
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+# Route pour lire le tableau des utilisateurs
 @app.route('/Capteur/TableauUtilisateurs', methods=['GET'])
 def lire_tableau_utilisateurs():
-    
     query = """
     SELECT 
         u.Nom as "TableUtilisateurs..Nom..",
@@ -648,6 +690,7 @@ def lire_tableau_utilisateurs():
     
     result = ConvertiRequeteEnJSON(query)
     return result
+
 #======================================================================================================
 
 
