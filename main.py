@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
-#DATABASE = os.getenv('DATABASE_URL', './Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
-DATABASE = os.getenv('DATABASE_URL', 'ACRN_API_REST_EMBARQ/Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
+CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000"]}})
+DATABASE = os.getenv('DATABASE_URL', './Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
+# DATABASE = os.getenv('DATABASE_URL', 'ACRN_API_REST_EMBARQ/Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
 DictDesriptionTable = {}  
 
 def get_db():
@@ -429,6 +429,8 @@ def duplicate_profil():
         # Création du nouveau profil avec le nouveau nom
         profil_dict = dict(original_profil)
         profil_dict['NomProfil'] = data['nom']
+        profil_dict['TypeProfil'] = "TYPE_PROFIL_PERSONNALISE"
+        profil_dict['NomProfil'] = data['nom']
 
         # Suppression de l'id pour la création du nouveau profil
         del profil_dict['IdProfil']
@@ -683,7 +685,9 @@ def lire_tableau_utilisateurs():
         u.Nom as "TableUtilisateurs..Nom..",
         u.MDP as "TableUtilisateurs..MDP..",
         p.NomProfil as "TableProfils..NomProfil..",
-        u.IdProfil as "TableUtilisateurs..IdProfil.."
+        u.IdProfil as "TableUtilisateurs..IdProfil..",
+        u.EstCloture as "TableUtilisateurs..EstCloture..",
+        u.IdUtilisateur as "TableUtilisateurs..IdUtilisateur.."
     FROM TableUtilisateurs u
     INNER JOIN TableProfils p ON u.IdProfil = p.IdProfil
     """
