@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
-#DATABASE = os.getenv('DATABASE_URL', './Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
-DATABASE = os.getenv('DATABASE_URL', 'ACRN_API_REST_EMBARQ/Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
+CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000", "https://acrn.netlify.app"]}})
+DATABASE = os.getenv('DATABASE_URL', './Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
+# DATABASE = os.getenv('DATABASE_URL', 'ACRN_API_REST_EMBARQ/Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
 DictDesriptionTable = {}  
 
 def get_db():
@@ -368,27 +368,24 @@ def ConvertiRequeteEnJSON(query, params=None):
             conn.close()
 
 def GenereSQLPourSelectEtoile(NomTable):
-     # Connexion à la base de données
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        # Récupération de la structure de la table
-        cursor.execute(f'PRAGMA table_info({NomTable})')
-        columns = cursor.fetchall()
-        
-        # Construction de la requête SQL avec tous les champs
-        select_parts = []
-        for col in columns:
-            column_name = col[1]  # Le nom de la colonne est dans la deuxième position
-            select_parts.append(f'{NomTable}.{column_name} as "{NomTable}..{column_name}.."')
-        
-        query = f"""
-        SELECT 
-            {',\n            '.join(select_parts)}
-        FROM {NomTable}
-        """
+    conn = get_db()
+    cursor = conn.cursor()
 
-        return(query)
+    cursor.execute(f'PRAGMA table_info({NomTable})')
+    columns = cursor.fetchall()
+
+    select_parts = [
+        f'{NomTable}.{col[1]} as "{NomTable}..{col[1]}.."' for col in columns
+    ]
+
+    joined_selects = ',\n            '.join(select_parts)
+    query = f"""
+    SELECT 
+        {joined_selects}
+    FROM {NomTable}
+    """
+
+    return query
 #======================================================================================================
 
 
@@ -428,6 +425,8 @@ def duplicate_profil():
         
         # Création du nouveau profil avec le nouveau nom
         profil_dict = dict(original_profil)
+        profil_dict['NomProfil'] = data['nom']
+        profil_dict['TypeProfil'] = "TYPE_PROFIL_PERSONNALISE"
         profil_dict['NomProfil'] = data['nom']
 
         # Suppression de l'id pour la création du nouveau profil
@@ -683,7 +682,9 @@ def lire_tableau_utilisateurs():
         u.Nom as "TableUtilisateurs..Nom..",
         u.MDP as "TableUtilisateurs..MDP..",
         p.NomProfil as "TableProfils..NomProfil..",
-        u.IdProfil as "TableUtilisateurs..IdProfil.."
+        u.IdProfil as "TableUtilisateurs..IdProfil..",
+        u.EstCloture as "TableUtilisateurs..EstCloture..",
+        u.IdUtilisateur as "TableUtilisateurs..IdUtilisateur.."
     FROM TableUtilisateurs u
     INNER JOIN TableProfils p ON u.IdProfil = p.IdProfil
     """
