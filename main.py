@@ -368,27 +368,24 @@ def ConvertiRequeteEnJSON(query, params=None):
             conn.close()
 
 def GenereSQLPourSelectEtoile(NomTable):
-     # Connexion à la base de données
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        # Récupération de la structure de la table
-        cursor.execute(f'PRAGMA table_info({NomTable})')
-        columns = cursor.fetchall()
-        
-        # Construction de la requête SQL avec tous les champs
-        select_parts = []
-        for col in columns:
-            column_name = col[1]  # Le nom de la colonne est dans la deuxième position
-            select_parts.append(f'{NomTable}.{column_name} as "{NomTable}..{column_name}.."')
-        
-        query = f"""
-        SELECT 
-            {',\n            '.join(select_parts)}
-        FROM {NomTable}
-        """
+    conn = get_db()
+    cursor = conn.cursor()
 
-        return(query)
+    cursor.execute(f'PRAGMA table_info({NomTable})')
+    columns = cursor.fetchall()
+
+    select_parts = [
+        f'{NomTable}.{col[1]} as "{NomTable}..{col[1]}.."' for col in columns
+    ]
+
+    joined_selects = ',\n            '.join(select_parts)
+    query = f"""
+    SELECT 
+        {joined_selects}
+    FROM {NomTable}
+    """
+
+    return query
 #======================================================================================================
 
 
