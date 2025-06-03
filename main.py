@@ -88,6 +88,35 @@ def list_tables():
         'message': 'Utilisez /<nom_table> pour accéder aux données'
     })
 
+@app.route('/profil/<int:idProfil>/droits', methods=['GET'])
+def get_droits_by_profil(idProfil):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+
+        # Vérifie si le profil existe
+        cursor.execute("SELECT * FROM TableProfils WHERE IdProfil = ?", (idProfil,))
+        if cursor.fetchone() is None:
+            return jsonify({'error': 'Profil non trouvé'}), 404
+
+        # Récupère les droits associés
+        cursor.execute("""
+            SELECT d.*
+            FROM TableDroits d
+            INNER JOIN TableProfilsDroits pd ON d.IdDroit = pd.IdDroit
+            WHERE pd.IdProfil = ?
+        """, (idProfil,))
+        
+        droits = [dict(row) for row in cursor.fetchall()]
+        return jsonify(droits), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Erreur lors de la récupération des droits : {str(e)}'}), 500
+
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
 # Route pour obtenir la structure d'une table
 @app.route('/<table_name>/structure', methods=['GET'])
 def get_table_structure(table_name):
