@@ -17,7 +17,7 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000", "https://acrn.netlify.app"]}})
-DATABASE = os.getenv('DATABASE_URL', './Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
+DATABASE = os.getenv('DATABASE_URL', './Bdd_Systeme_ACRN.db').replace('sqlite:///', '')
 # DATABASE = os.getenv('DATABASE_URL', 'ACRN_API_REST_EMBARQ/Bdd_Systeme_ACRN_NEW.db').replace('sqlite:///', '')
 DictDesriptionTable = {}  
 
@@ -25,8 +25,6 @@ def get_db():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
-
-
 
 #======================================================================================================
 # ROUTES STANDARDS POUR LE LOGICIEL EMBARQUE
@@ -815,7 +813,7 @@ def lire_csv_courbes():
             return jsonify({'error': 'Le paramètre nom_fichier est requis'}), 400
 
         # Construction du chemin complet du fichier
-        chemin_fichier = os.path.join('ACRN_API_REST_EMBARQ', nom_fichier)
+        chemin_fichier = os.path.join(nom_fichier)
         print(f"Tentative de lecture du fichier : {chemin_fichier}")
         
         if not os.path.exists(chemin_fichier):
@@ -889,7 +887,7 @@ def telecharger_csv():
             return jsonify({'error': 'Le paramètre nom_fichier est requis'}), 400
 
         # Construction du chemin complet du fichier
-        chemin_fichier = os.path.join('ACRN_API_REST_EMBARQ\CSVCourbes', nom_fichier)
+        chemin_fichier = os.path.join(os.path.dirname(__file__), 'CSVCourbes', nom_fichier)
         print(chemin_fichier)
         
         if not os.path.exists(chemin_fichier):
